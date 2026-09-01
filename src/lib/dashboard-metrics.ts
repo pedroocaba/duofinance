@@ -39,12 +39,26 @@ export function sum(nums: Array<number | string | null | undefined>): number {
   return nums.reduce<number>((acc, n) => acc + Number(n ?? 0), 0);
 }
 
+/**
+ * Transação "realizada": exclui canceladas de qualquer agregação financeira
+ * (KPIs, gráficos, rankings, insights). Mesmo critério já usado pelo banco
+ * para excluir canceladas do limite disponível do cartão — ver
+ * apply_transaction_balance()/recalculate_balances() nas migrations.
+ */
+export function isRealized(t: Pick<TransactionRow, "status">): boolean {
+  return t.status !== "cancelada";
+}
+
 export function income(tx: TransactionRow[], r?: Range): number {
-  return sum(tx.filter((t) => t.type === "receita" && (!r || inRange(t.occurred_at, r))).map((t) => t.amount));
+  return sum(
+    tx.filter((t) => t.type === "receita" && isRealized(t) && (!r || inRange(t.occurred_at, r))).map((t) => t.amount),
+  );
 }
 
 export function outcome(tx: TransactionRow[], r?: Range): number {
-  return sum(tx.filter((t) => t.type === "despesa" && (!r || inRange(t.occurred_at, r))).map((t) => t.amount));
+  return sum(
+    tx.filter((t) => t.type === "despesa" && isRealized(t) && (!r || inRange(t.occurred_at, r))).map((t) => t.amount),
+  );
 }
 
 export function totalBalance(accounts: AccountRow[]): number {
@@ -91,7 +105,7 @@ export function groupByCategory(
   const map = new Map(cats.map((c) => [c.id, c]));
   const acc = new Map<string, CategoryBreakdown>();
   for (const t of tx) {
-    if (t.type !== kind) continue;
+    if (t.type !== kind || !isRealized(t)) continue;
     const c = t.category_id ? map.get(t.category_id) : null;
     const key = c?.id ?? "sem-categoria";
     const prev = acc.get(key);
@@ -118,7 +132,7 @@ export function groupByCard(tx: TransactionRow[], cards: CardRow[]): NamedBreakd
   const map = new Map(cards.map((c) => [c.id, c]));
   const acc = new Map<string, NamedBreakdown>();
   for (const t of tx) {
-    if (t.type !== "despesa" || !t.credit_card_id) continue;
+    if (t.type !== "despesa" || !t.credit_card_id || !isRealized(t)) continue;
     const c = map.get(t.credit_card_id);
     if (!c) continue;
     const prev = acc.get(c.id);
@@ -137,7 +151,7 @@ export function groupByAccount(tx: TransactionRow[], accounts: AccountRow[]): Na
   const map = new Map(accounts.map((a) => [a.id, a]));
   const acc = new Map<string, NamedBreakdown>();
   for (const t of tx) {
-    if (t.type !== "despesa" || !t.account_id) continue;
+    if (t.type !== "despesa" || !t.account_id || !isRealized(t)) continue;
     const a = map.get(t.account_id);
     if (!a) continue;
     const prev = acc.get(a.id);
@@ -173,6 +187,7 @@ export function monthlyEvolution(tx: TransactionRow[], months = 6): MonthlyPoint
     buckets.set(key, { key, label, receita: 0, despesa: 0, saldo: 0 });
   }
   for (const t of tx) {
+    if (!isRealized(t)) continue;
     const d = new Date(t.occurred_at);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const b = buckets.get(key);
@@ -209,7 +224,7 @@ export function groupByOwnerAndFamily(
   const acc = new Map<string, OwnerBreakdown>();
   const familyKey = "familia";
   for (const t of tx) {
-    if (t.type !== "despesa") continue;
+    if (t.type !== "despesa" || !isRealized(t)) continue;
     if (t.scope === "compartilhado") {
       const prev = acc.get(familyKey);
       acc.set(familyKey, {
@@ -253,7 +268,7 @@ export function monthlyAverage(points: MonthlyPoint[], kind: "despesa" | "receit
 }
 
 export function biggest(tx: TransactionRow[], kind: "despesa" | "receita"): TransactionRow | null {
-  const filtered = tx.filter((t) => t.type === kind);
+  const filtered = tx.filter((t) => t.type === kind && isRealized(t));
   if (filtered.length === 0) return null;
   return filtered.reduce((max, t) => (Number(t.amount) > Number(max.amount) ? t : max));
 }

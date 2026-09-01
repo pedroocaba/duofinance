@@ -16,6 +16,7 @@ import {
   committedOnCards,
   totalBalance,
   variation,
+  isRealized,
   type Range,
 } from "./dashboard-metrics";
 
@@ -143,7 +144,7 @@ export function generateInsights(input: GenerateInsightsInput): Insight[] {
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const byCat = new Map<string, number>();
   for (const t of currentTx) {
-    if (t.type !== "despesa" || !t.category_id) continue;
+    if (t.type !== "despesa" || !t.category_id || !isRealized(t)) continue;
     byCat.set(t.category_id, (byCat.get(t.category_id) ?? 0) + Number(t.amount));
   }
   const catTop = [...byCat.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -161,7 +162,7 @@ export function generateInsights(input: GenerateInsightsInput): Insight[] {
   // Categoria que mais cresceu / reduziu
   const catPrev = new Map<string, number>();
   for (const t of previousTx) {
-    if (t.type !== "despesa" || !t.category_id) continue;
+    if (t.type !== "despesa" || !t.category_id || !isRealized(t)) continue;
     catPrev.set(t.category_id, (catPrev.get(t.category_id) ?? 0) + Number(t.amount));
   }
   const deltas: Array<{ id: string; delta: number; cur: number; prev: number }> = [];
@@ -198,7 +199,7 @@ export function generateInsights(input: GenerateInsightsInput): Insight[] {
   // Cartão mais usado
   const byCard = new Map<string, number>();
   for (const t of currentTx) {
-    if (t.type !== "despesa" || !t.credit_card_id) continue;
+    if (t.type !== "despesa" || !t.credit_card_id || !isRealized(t)) continue;
     byCard.set(t.credit_card_id, (byCard.get(t.credit_card_id) ?? 0) + Number(t.amount));
   }
   const cardTop = [...byCard.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -216,7 +217,7 @@ export function generateInsights(input: GenerateInsightsInput): Insight[] {
   // Conta mais usada
   const byAcc = new Map<string, number>();
   for (const t of currentTx) {
-    if (!t.account_id) continue;
+    if (!t.account_id || !isRealized(t)) continue;
     byAcc.set(t.account_id, (byAcc.get(t.account_id) ?? 0) + Number(t.amount));
   }
   const accTop = [...byAcc.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -306,7 +307,7 @@ export function weekdayExpenses(tx: TransactionRow[]): Map<number, number> {
   const acc = new Map<number, number>();
   for (let i = 0; i < 7; i++) acc.set(i, 0);
   for (const t of tx) {
-    if (t.type !== "despesa") continue;
+    if (t.type !== "despesa" || !isRealized(t)) continue;
     const d = new Date(t.occurred_at + (t.occurred_at.length === 10 ? "T12:00:00" : ""));
     const w = d.getDay();
     acc.set(w, (acc.get(w) ?? 0) + Number(t.amount));
@@ -353,7 +354,7 @@ function rankCategories(tx: TransactionRow[], cats: CategoryRow[], type: "receit
   const map = new Map(cats.map((c) => [c.id, c]));
   const acc = new Map<string, number>();
   for (const t of tx) {
-    if (t.type !== type) continue;
+    if (t.type !== type || !isRealized(t)) continue;
     const key = t.category_id ?? "sem";
     acc.set(key, (acc.get(key) ?? 0) + Number(t.amount));
   }
@@ -370,7 +371,7 @@ export function rankCardsByUsage(tx: TransactionRow[], cards: CardRow[]): RankIt
   const map = new Map(cards.map((c) => [c.id, c]));
   const acc = new Map<string, number>();
   for (const t of tx) {
-    if (t.type !== "despesa" || !t.credit_card_id) continue;
+    if (t.type !== "despesa" || !t.credit_card_id || !isRealized(t)) continue;
     acc.set(t.credit_card_id, (acc.get(t.credit_card_id) ?? 0) + Number(t.amount));
   }
   return [...acc.entries()]
@@ -402,7 +403,7 @@ export function rankAccountsByMovement(tx: TransactionRow[], accounts: AccountRo
   const map = new Map(accounts.map((a) => [a.id, a]));
   const acc = new Map<string, number>();
   for (const t of tx) {
-    if (!t.account_id) continue;
+    if (!t.account_id || !isRealized(t)) continue;
     acc.set(t.account_id, (acc.get(t.account_id) ?? 0) + Number(t.amount));
   }
   return [...acc.entries()]
@@ -417,7 +418,7 @@ export function rankAccountsByMovement(tx: TransactionRow[], accounts: AccountRo
 export function rankEstablishments(tx: TransactionRow[], limit = 10): RankItem[] {
   const acc = new Map<string, { name: string; value: number; count: number }>();
   for (const t of tx) {
-    if (t.type !== "despesa" || !t.description) continue;
+    if (t.type !== "despesa" || !t.description || !isRealized(t)) continue;
     const name = normalizeDescription(t.description);
     if (!name) continue;
     const key = name.toLowerCase();
