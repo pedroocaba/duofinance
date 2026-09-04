@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,29 +31,28 @@ export function PeriodFilter({ className }: { className?: string }) {
 
   return (
     <div className={`flex items-center gap-1 ${className ?? ""}`}>
-      <Select value={periodKey} onValueChange={handleChange}>
-        <SelectTrigger
-          className="h-9 w-[168px] rounded-full border-border bg-secondary/60 text-xs"
-          aria-label="Filtro global de período"
-        >
-          <CalendarRange className="size-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue>
-            <span className="truncate">{label}</span>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {PERIOD_OPTIONS.map((o) => (
-            <SelectItem key={o.key} value={o.key} className="text-xs">
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
       <Popover open={openCustom} onOpenChange={setOpenCustom}>
-        <PopoverTrigger asChild>
-          <span className="sr-only" aria-hidden />
-        </PopoverTrigger>
+        <PopoverAnchor asChild>
+          <Select value={periodKey} onValueChange={handleChange}>
+            <SelectTrigger
+              className="h-9 w-[168px] rounded-full border-border bg-secondary/60 text-xs"
+              aria-label="Filtro global de período"
+            >
+              <CalendarRange className="size-3.5 shrink-0 text-muted-foreground" />
+              <SelectValue>
+                <span className="truncate">{label}</span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((o) => (
+                <SelectItem key={o.key} value={o.key} className="text-xs">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PopoverAnchor>
+
         <PopoverContent align="end" className="w-64 space-y-3">
           <p className="text-sm font-medium">Período personalizado</p>
           <div className="space-y-1">
