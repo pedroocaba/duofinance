@@ -23,7 +23,11 @@ export function PeriodFilter({ className }: { className?: string }) {
     const key = v as PeriodKey;
     if (key === "custom") {
       setDraft(custom);
-      setOpenCustom(true);
+      // O Select ainda está terminando de fechar (e devolvendo foco) quando
+      // este handler roda; abrir o Popover no mesmo instante faz o Radix
+      // interpretar o "resto" desse fechamento como um clique fora do
+      // Popover, fechando ele quase na hora. Um pequeno atraso evita isso.
+      setTimeout(() => setOpenCustom(true), 100);
       return;
     }
     setPeriodKey(key);
@@ -33,24 +37,26 @@ export function PeriodFilter({ className }: { className?: string }) {
     <div className={`flex items-center gap-1 ${className ?? ""}`}>
       <Popover open={openCustom} onOpenChange={setOpenCustom}>
         <PopoverAnchor asChild>
-          <Select value={periodKey} onValueChange={handleChange}>
-            <SelectTrigger
-              className="h-9 w-[168px] rounded-full border-border bg-secondary/60 text-xs"
-              aria-label="Filtro global de período"
-            >
-              <CalendarRange className="size-3.5 shrink-0 text-muted-foreground" />
-              <SelectValue>
-                <span className="truncate">{label}</span>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {PERIOD_OPTIONS.map((o) => (
-                <SelectItem key={o.key} value={o.key} className="text-xs">
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div>
+            <Select value={periodKey} onValueChange={handleChange}>
+              <SelectTrigger
+                className="h-9 w-[168px] rounded-full border-border bg-secondary/60 text-xs"
+                aria-label="Filtro global de período"
+              >
+                <CalendarRange className="size-3.5 shrink-0 text-muted-foreground" />
+                <SelectValue>
+                  <span className="truncate">{label}</span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent onCloseAutoFocus={(e) => e.preventDefault()}>
+                {PERIOD_OPTIONS.map((o) => (
+                  <SelectItem key={o.key} value={o.key} className="text-xs">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </PopoverAnchor>
 
         <PopoverContent align="end" className="w-64 space-y-3">
